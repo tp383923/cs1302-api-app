@@ -1,13 +1,9 @@
 package cs1302.api;
 
 /**
- * Represents a response from the SpaceflightNews API.
+ * Represents a response from the SNAPI.
  */
 public class ArticleResponse {
-    String title;
-    String publishedAt;
-    ArticleAuthor author;
-    String summary;
-    String imageUrl;
-
-} // Article Response
+    int count;
+    ArticleResult[] results;
+} // ArticleResponse

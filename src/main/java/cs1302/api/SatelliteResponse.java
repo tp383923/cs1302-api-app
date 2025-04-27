@@ -1,11 +1,9 @@
 package cs1302.api;
 
 /**
- * Represents a response from the TLE satellite API.
+ * Represents a response from the TLE API.
  */
 public class SatelliteResponse {
-    String name;
-    int satelliteId;
-    String date;
-    String line2;
+    int totalItems;
+    SatelliteResult[] member;
 } // SatelliteResponse

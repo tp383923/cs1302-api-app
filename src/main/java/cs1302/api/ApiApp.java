@@ -46,6 +46,12 @@ import com.google.gson.GsonBuilder;
  * REPLACE WITH NON-SHOUTING DESCRIPTION OF YOUR APP.
  */
 public class ApiApp extends Application {
+
+    private static final String SNAPI = "https://api.spaceflightnewsapi." +
+         "net/v4/articles/?format=json";
+
+    private static final String TLE_API = "https://tle.ivanstanojevic.me/api/tle/?search=";
+
     /** HTTP client. */
     public static final HttpClient HTTP_CLIENT = HttpClient.newBuilder()
         .version(HttpClient.Version.HTTP_2)           // uses HTTP protocol version 2 where possible
@@ -80,6 +86,15 @@ public class ApiApp extends Application {
     HBox satelliteBox;
     Label satelliteInfo;
 
+    //Instance Variables
+    String uri;
+    ArticleResponse articleResponse;
+    SatelliteResponse satelliteResponse;
+    ArrayList<ArticleResult> articleList;
+    ArrayList<SatelliteResult> satelliteList;
+    ArticleResult displayedArticle;
+    SatelliteResult displayedSatellite;
+
     /**
      * Constructs an {@code ApiApp} object. This default (i.e., no argument)
      * constructor is executed in Step 2 of the JavaFX Application Life-Cycle.
@@ -88,7 +103,7 @@ public class ApiApp extends Application {
         root = new VBox();
         articleLabel = new Label("Enter a query for a spaceflight article.");
         searchBox = new HBox();
-        searchBar = new TextField("Article Title");
+        searchBar = new TextField("Topic/Title");
         loadArticle = new Button("Load Article");
         articleBox = new HBox();
         articleInfoBox = new VBox();
@@ -99,7 +114,7 @@ public class ApiApp extends Application {
             new Image("file:resources/readme-banner.png", 100, 100, false, false));
         articleImage.setPreserveRatio(true);
         articleImage.setFitWidth(200);
-        satelliteLabel = new Label("Satellite Info launched in X Year");
+        satelliteLabel = new Label("Info on Sattelite launched in Article Release Year");
         satelliteBox = new HBox();
         satelliteInfo = new Label("Satellite: " + "\nLaunch Year: " + "\nSatellite Number: "
             + "\nRevolutions around Earth: ");
@@ -128,29 +143,60 @@ public class ApiApp extends Application {
         this.stage = stage;
         scene = new Scene(root);
         Platform.runLater(() -> this.stage.setResizable(false));
-        // setup stage
+        //Setup stage
         stage.setTitle("ApiApp!");
         stage.setScene(scene);
         stage.setOnCloseRequest(event -> Platform.exit());
         stage.sizeToScene();
         stage.show();
 
+        //Load Article Button
+        EventHandler<ActionEvent> loadArticleHandler = (ActionEvent e) -> {
+            loadArticle.setDisable(true);
+
+            //Form SNAPI URI Response
+            runNow(() -> {
+                getArticleResponse(jsonArticleResponse());
+
+                //Randomly select an article from SNAPI response to display and use for the TLE API
+                int randIndexArticle = (int)(Math.random() * articleList.size() + 1);
+                displayedArticle = articleList.get(randIndexArticle);
+
+                //Display Article Info
+                //Platform.runLater(() -> displayArticle());
+
+                //Form TLE URI Response
+                getSatelliteResponse(jsonSatelliteResponse());
+
+                //Randomly select an article from SNAPI response to display and use for the TLE API
+                int randIndexSatellite = (int)(Math.random() * satelliteList.size() + 1);
+                displayedSatellite = satelliteList.get(randIndexSatellite);
+
+
+                //Display Satellite Info
+                //Platform.runLater(() -> displaySatellite());
+
+                Platform.runLater(() -> loadArticle.setDisable(false));
+            });
+        };
+        loadArticle.setOnAction(loadArticleHandler);
+
     } // start
 
 
     /**
-     * Method to retrieve JSON response String for iTunes query.
+     * Method to retrieve JSON response String for an SNAPI query.
      * Pulled from the HTTP Textbook Reading.
-     * @return ItunesResponse the response from the iTunes API.
-     *
-    public ItunesResponse jsonResponse() {
+     * @return ArticleResponse the response from the SNAPI.
+     */
+    public ArticleResponse jsonArticleResponse() {
         try {
             // form URI
-            String term = URLEncoder.encode(searchBar.getText(), StandardCharsets.UTF_8);
-            String media = URLEncoder.encode(mediaType.getValue(), StandardCharsets.UTF_8);
-            String limit = URLEncoder.encode("200", StandardCharsets.UTF_8);
-            String query = String.format("?term=%s&media=%s&limit=%s", term, media, limit);
-            uri = ITUNES_API + query;
+            String title = URLEncoder.encode(searchBar.getText(), StandardCharsets.UTF_8);
+            System.out.println(title);
+            String limit = URLEncoder.encode("50", StandardCharsets.UTF_8);
+            String query = String.format("&title_contains=%s&limit=%s", title, limit);
+            uri = SNAPI + query;
 
             // build request
             HttpRequest request = HttpRequest.newBuilder()
@@ -166,50 +212,103 @@ public class ApiApp extends Application {
             // get request body (the content we requested)
             String jsonString = response.body();
             // parse the JSON-formatted string using GSON
-            itunesResponse = GSON
-                .fromJson(jsonString, ItunesResponse.class);
+            articleResponse = GSON
+                .fromJson(jsonString, ArticleResponse.class);
         } catch (IOException | InterruptedException ioe) {
             Platform.runLater(() -> alertError(ioe, "URI:" + uri + "\n\nException: "));
-            hasStatusError = true;
             System.err.println(ioe);
             ioe.printStackTrace();
         } // try
-        return itunesResponse;
-    } // jsonResponse
-    */
+        return articleResponse;
+    } // jsonArticleResponse
+
     /**
-     * Returns list of URI Strings based on an {@code itunesResponse}.
+     * Method to retrieve JSON response String for an TLE API query.
      * Pulled from the HTTP Textbook Reading.
-     * @param itunesResponse the response object
-     * @return String[] the array of results
-     *
-    private ArrayList<String> getItunesResponse(ItunesResponse itunesResponse) {
-
-        //Stores URLs in a list.
-        urlList = new ArrayList<String>(itunesResponse.results.length);
-        for (int i = 0; i < itunesResponse.results.length; i++) {
-            ItunesResult result = itunesResponse.results[i];
-            urlList.add(i, result.artworkUrl100);
-        } // for
-
-        //Remove Duplicates
-        for (int i = 0; i < urlList.size(); i++) {
-            if (i == -1) {
-                i++;
+     * @return SatelliteResponse the response from the TLE API.
+     */
+    public SatelliteResponse jsonSatelliteResponse() {
+        try {
+            // form URI
+            String query = URLEncoder.encode(
+                displayedArticle.published_at.substring(0, 4), StandardCharsets.UTF_8);
+            uri = TLE_API + query;
+            System.out.println(uri);
+            // build request
+            HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(uri))
+                .build();
+            // send request / receive response in the form of a String
+            HttpResponse<String> response = HTTP_CLIENT
+                .send(request, BodyHandlers.ofString());
+            // ensure the request is okay
+            if (response.statusCode() != 200) {
+                throw new IOException(response.toString());
             } // if
-            for (int j = i + 1; j < urlList.size(); j++) {
-                if (urlList.get(i).equals(urlList.get(j))) {
-                    urlList.remove(i);
-                    if (i != 0) {
-                        i--;
-                    } // if
-                } // if
-            } // for
+            // get request body (the content we requested)
+            String jsonString = response.body();
+            // parse the JSON-formatted string using GSON
+            satelliteResponse = GSON
+                .fromJson(jsonString, SatelliteResponse.class);
+        } catch (IOException | InterruptedException ioe) {
+            Platform.runLater(() -> alertError(ioe, "URI:" + uri + "\n\nException: "));
+            System.err.println(ioe);
+            ioe.printStackTrace();
+        } // try
+        return satelliteResponse;
+    } // jsonSatelliteResponse
+
+    /**
+     * Returns list of URI Strings based on an {@code articleResponse}.
+     * Pulled from the HTTP Textbook Reading.
+     * @param articleResponse the response object
+     * @return ArticleResult[] the array of results
+     */
+    private ArrayList<ArticleResult> getArticleResponse(ArticleResponse articleResponse) {
+        //Stores URLs in a list.
+        articleList = new ArrayList<ArticleResult>(articleResponse.results.length);
+        for (int i = 0; i < articleResponse.results.length; i++) {
+            ArticleResult result = articleResponse.results[i];
+            articleList.add(i, result);
         } // for
 
-        return urlList;
-    } // getItunesResponse
-    */
+        return articleList;
+    } // getArticleResponse
+
+    /**
+     * Returns list of URI Strings based on an {@code satelliteResponse}.
+     * Pulled from the HTTP Textbook Reading.
+     * @param satelliteResponse the response object
+     * @return String[] the array of results
+     */
+    private ArrayList<SatelliteResult> getSatelliteResponse(SatelliteResponse satelliteResponse) {
+        System.out.println(GSON.toJson(satelliteResponse));
+        //Stores URLs in a list.
+        satelliteList = new ArrayList<SatelliteResult>(satelliteResponse.member.length);
+        for (int i = 0; i < satelliteResponse.member.length; i++) {
+            SatelliteResult result = satelliteResponse.member[i];
+            if (result.name.substring(0, 4).equals
+                (displayedArticle.published_at.substring(0, 4))) {
+                satelliteList.add(i, result);
+            } // if
+        } // for
+
+        return satelliteList;
+    } // getSatelliteResponse
+
+    /**
+     * Takes the SNAPI Article contents and adds their data to the scene graph components.
+     */
+    public void displayArticle() {
+        throw new UnsupportedOperationException("not yet implemented");
+    } // displayArticle
+
+    /**
+     * Takes the TLE Satellite contents and adds their data to the scene graph components.
+     */
+    public void displaySatellite() {
+        throw new UnsupportedOperationException("not yet implemented");
+    } // displaySatellite
 
     /**
      * Show a modal error alert based on {@code cause}.
