@@ -7,5 +7,6 @@ public class SatelliteResult {
     String name;
     int satelliteId;
     String date;
+    String line1;
     String line2;
 } // SatelliteResult

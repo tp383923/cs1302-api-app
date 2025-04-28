@@ -38,6 +38,7 @@ import java.util.ArrayList;
 import javafx.scene.image.ImageView;
 import javafx.scene.image.Image;
 import java.lang.Math;
+import java.util.Scanner;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -111,14 +112,20 @@ public class ApiApp extends Application {
         articleSummary = new Label("\nSummary: ");
         articleImageBox = new VBox();
         articleImage = new ImageView(
-            new Image("file:resources/readme-banner.png", 100, 100, false, false));
+            new Image("file:resources/space.png", 100, 100, false, false));
         articleImage.setPreserveRatio(true);
         articleImage.setFitWidth(200);
-        satelliteLabel = new Label("Info on Sattelite launched in Article Release Year");
+        satelliteLabel = new Label("Info on Satellite launched in Article Date Year");
         satelliteBox = new HBox();
-        satelliteInfo = new Label("Satellite: " + "\nLaunch Year: " + "\nSatellite Number: "
+        satelliteInfo = new Label("Satellite: "
+            + "\nSatellite Number: "
+            + "\nLaunch Year: "
+            + "\nElement Number:"
+            + "\nLaunch Year: "
+            + "\nInclination: "
+            + "\nEccentricity: "
+            + "\nArgument of Perigree: "
             + "\nRevolutions around Earth: ");
-
     } // ApiApp
 
     /** {@inheritDoc} */
@@ -159,22 +166,22 @@ public class ApiApp extends Application {
                 getArticleResponse(jsonArticleResponse());
 
                 //Randomly select an article from SNAPI response to display and use for the TLE API
-                int randIndexArticle = (int)(Math.random() * articleList.size() + 1);
+                int randIndexArticle = (int)(Math.random() * articleList.size());
                 displayedArticle = articleList.get(randIndexArticle);
 
                 //Display Article Info
-                //Platform.runLater(() -> displayArticle());
+                Platform.runLater(() -> displayArticle());
 
                 //Form TLE URI Response
                 getSatelliteResponse(jsonSatelliteResponse());
 
                 //Randomly select an article from SNAPI response to display and use for the TLE API
-                int randIndexSatellite = (int)(Math.random() * satelliteList.size() + 1);
+                int randIndexSatellite = (int)(Math.random() * satelliteList.size());
                 displayedSatellite = satelliteList.get(randIndexSatellite);
 
 
                 //Display Satellite Info
-                //Platform.runLater(() -> displaySatellite());
+                Platform.runLater(() -> displaySatellite());
 
                 Platform.runLater(() -> loadArticle.setDisable(false));
             });
@@ -231,7 +238,7 @@ public class ApiApp extends Application {
         try {
             // form URI
             String query = URLEncoder.encode(
-                displayedArticle.published_at.substring(0, 4), StandardCharsets.UTF_8);
+                displayedArticle.publishedAt.substring(0, 4), StandardCharsets.UTF_8);
             uri = TLE_API + query;
             System.out.println(uri);
             // build request
@@ -284,11 +291,11 @@ public class ApiApp extends Application {
     private ArrayList<SatelliteResult> getSatelliteResponse(SatelliteResponse satelliteResponse) {
         System.out.println(GSON.toJson(satelliteResponse));
         //Stores URLs in a list.
-        satelliteList = new ArrayList<SatelliteResult>(satelliteResponse.member.length);
+        satelliteList = new ArrayList<SatelliteResult>();
         for (int i = 0; i < satelliteResponse.member.length; i++) {
             SatelliteResult result = satelliteResponse.member[i];
             if (result.name.substring(0, 4).equals
-                (displayedArticle.published_at.substring(0, 4))) {
+                (displayedArticle.publishedAt.substring(0, 4))) {
                 satelliteList.add(i, result);
             } // if
         } // for
@@ -300,14 +307,54 @@ public class ApiApp extends Application {
      * Takes the SNAPI Article contents and adds their data to the scene graph components.
      */
     public void displayArticle() {
-        throw new UnsupportedOperationException("not yet implemented");
+        // Traversing Article Author List
+        String authorList = "";
+        for (int i = 0; i < displayedArticle.authors.length; i++) {
+            authorList += displayedArticle.authors[i].name + "\n";
+        } // for
+
+        // Changing Scene Graph Components
+        articleInfo.setText("Title: " + displayedArticle.title
+            +  "\n\nAuthor(s): " + authorList +
+            "\n\nDate: " + displayedArticle.publishedAt);
+        articleSummary.setText("\nSummary: " + displayedArticle.summary);
+        if (displayedArticle.imageUrl != null) {
+            articleImage.setImage(
+                new Image(displayedArticle.imageUrl, 100, 100, false, false));
+        } // if
     } // displayArticle
 
     /**
      * Takes the TLE Satellite contents and adds their data to the scene graph components.
      */
     public void displaySatellite() {
-        throw new UnsupportedOperationException("not yet implemented");
+        // Parsing through the second line of text given by the TLE API
+        String fullLine = displayedSatellite.line2;
+        Scanner lineScan = new Scanner(fullLine);
+        for (int i = 0; i < 2; i++) {
+            lineScan.next();
+        } // for
+        String inclination = lineScan.next();
+        lineScan.next();
+        String eccentricity = lineScan.next();
+        String perigee = lineScan.next();
+        for (int i = 0; i < 2; i++) {
+            lineScan.next();
+        } // for
+        String revolutions = lineScan.next();
+
+        // Changing Scene Graph Components
+        satelliteInfo.setText("Satellite: " + displayedSatellite.name
+            + "\nSatellite Number: " + displayedSatellite.satelliteId
+            + "\nLaunch Year: " + displayedSatellite.date.substring(0, 4)
+            + "\nElement Number:"
+            + displayedSatellite.line1.substring
+             (displayedSatellite.line1.length() - 4, displayedSatellite.line1.length())
+            + "\nLaunch Year: " + displayedSatellite.date.substring(0, 4)
+            + "\nInclination: " + inclination
+            + "\nEccentricity: " + eccentricity
+            + "\nArgument of Perigee: " + perigee
+            + "\nRevolutions around Earth: " + revolutions.substring(0, revolutions.length() - 1));
     } // displaySatellite
 
     /**
@@ -338,7 +385,5 @@ public class ApiApp extends Application {
         t.setDaemon(true);
         t.start();
     } // runNow
-
-
 
 } // ApiApp

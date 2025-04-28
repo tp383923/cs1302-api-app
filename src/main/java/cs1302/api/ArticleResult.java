@@ -1,13 +1,17 @@
 package cs1302.api;
 
+import com.google.gson.annotations.SerializedName;
+
 /**
  * Represents a result from the SNAPI.
  */
 public class ArticleResult {
     String title;
-    String published_at;
+    @SerializedName("published_at")
+    String publishedAt;
     ArticleAuthor[] authors;
     String summary;
-    String image_url;
+    @SerializedName("image_url")
+    String imageUrl;
 
 } // ArticleResult
