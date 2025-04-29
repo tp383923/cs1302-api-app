@@ -10,6 +10,7 @@ public class ArticleResult {
     @SerializedName("published_at")
     String publishedAt;
     ArticleAuthor[] authors;
+    String url;
     String summary;
     @SerializedName("image_url")
     String imageUrl;

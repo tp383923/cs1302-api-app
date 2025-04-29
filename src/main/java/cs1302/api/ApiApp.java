@@ -39,6 +39,7 @@ import javafx.scene.image.ImageView;
 import javafx.scene.image.Image;
 import java.lang.Math;
 import java.util.Scanner;
+import javafx.stage.Modality;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -76,16 +77,12 @@ public class ApiApp extends Application {
     Button loadArticle;
 
     HBox articleBox;
-    VBox articleInfoBox;
-    Label articleInfo;
-    Label articleSummary;
-    VBox articleImageBox;
+    TextArea articleInfo;
     ImageView articleImage;
 
+    Alert satelliteBox;
     Label satelliteLabel;
-
-    HBox satelliteBox;
-    Label satelliteInfo;
+    TextArea satelliteInfo;
 
     //Instance Variables
     String uri;
@@ -104,28 +101,30 @@ public class ApiApp extends Application {
         root = new VBox();
         articleLabel = new Label("Enter a query for a spaceflight article.");
         searchBox = new HBox();
-        searchBar = new TextField("Topic/Title");
+        searchBar = new TextField("Enter Topic/Title");
         loadArticle = new Button("Load Article");
         articleBox = new HBox();
-        articleInfoBox = new VBox();
-        articleInfo = new Label("Title: " + "\n\nAuthor(s): " + "\n\nDate: ");
-        articleSummary = new Label("\nSummary: ");
-        articleImageBox = new VBox();
+        articleInfo = new TextArea("Title: "
+            + "\n\nAuthor(s): "
+            + "\n\nDate: "
+            + "\n\nSummary: "
+            + "\n\nURL: ");
+        articleInfo.setPrefWidth(300);
+        articleInfo.setEditable(false);
+        articleInfo.setWrapText(true);
         articleImage = new ImageView(
             new Image("file:resources/space.png", 100, 100, false, false));
         articleImage.setPreserveRatio(true);
         articleImage.setFitWidth(200);
         satelliteLabel = new Label("Info on Satellite launched in Article Date Year");
-        satelliteBox = new HBox();
-        satelliteInfo = new Label("Satellite: "
-            + "\nSatellite Number: "
-            + "\nLaunch Year: "
-            + "\nElement Number:"
-            + "\nLaunch Year: "
-            + "\nInclination: "
-            + "\nEccentricity: "
-            + "\nArgument of Perigree: "
-            + "\nRevolutions around Earth: ");
+        satelliteBox = new Alert(AlertType.INFORMATION);
+        satelliteBox.initModality(Modality.NONE);
+        satelliteBox.setTitle("Satellite Info");
+        satelliteBox.setHeaderText("This Satellite launched the same"
+            + " year this article was published.");
+        satelliteInfo = new TextArea("");
+        satelliteInfo.setEditable(false);
+        satelliteInfo.setWrapText(true);
     } // ApiApp
 
     /** {@inheritDoc} */
@@ -133,13 +132,12 @@ public class ApiApp extends Application {
     public void init () {
         //Connecting Components
         root.getChildren().addAll(articleLabel, searchBox,
-            articleBox, satelliteLabel, satelliteBox);
+            articleBox);
         searchBox.getChildren().addAll(searchBar, loadArticle);
-        articleBox.getChildren().addAll(articleInfoBox, articleImageBox);
-        articleInfoBox.getChildren().addAll(articleInfo, articleSummary);
-        articleImageBox.getChildren().addAll(articleImage);
-        satelliteBox.getChildren().addAll(satelliteInfo);
+        articleBox.getChildren().addAll(articleInfo, articleImage);
 
+        //Formatting
+        articleBox.setHgrow(searchBar, Priority.ALWAYS);
     } // init
 
 
@@ -160,6 +158,7 @@ public class ApiApp extends Application {
         //Load Article Button
         EventHandler<ActionEvent> loadArticleHandler = (ActionEvent e) -> {
             loadArticle.setDisable(true);
+            articleLabel.setText("Getting Article and Satellite...");
 
             //Form SNAPI URI Response
             runNow(() -> {
@@ -179,11 +178,11 @@ public class ApiApp extends Application {
                 int randIndexSatellite = (int)(Math.random() * satelliteList.size());
                 displayedSatellite = satelliteList.get(randIndexSatellite);
 
-
                 //Display Satellite Info
                 Platform.runLater(() -> displaySatellite());
 
                 Platform.runLater(() -> loadArticle.setDisable(false));
+                Platform.runLater(() -> articleLabel.setText("Article and Satellite Retrieved"));
             });
         };
         loadArticle.setOnAction(loadArticleHandler);
@@ -273,7 +272,7 @@ public class ApiApp extends Application {
      */
     private ArrayList<ArticleResult> getArticleResponse(ArticleResponse articleResponse) {
         //Stores URLs in a list.
-        articleList = new ArrayList<ArticleResult>(articleResponse.results.length);
+        articleList = new ArrayList<ArticleResult>();
         for (int i = 0; i < articleResponse.results.length; i++) {
             ArticleResult result = articleResponse.results[i];
             articleList.add(i, result);
@@ -315,9 +314,10 @@ public class ApiApp extends Application {
 
         // Changing Scene Graph Components
         articleInfo.setText("Title: " + displayedArticle.title
-            +  "\n\nAuthor(s): " + authorList +
-            "\n\nDate: " + displayedArticle.publishedAt);
-        articleSummary.setText("\nSummary: " + displayedArticle.summary);
+            + "\n\nAuthor(s): " + authorList
+            + "\nDate: " + displayedArticle.publishedAt
+            + "\n\nSummary: " + displayedArticle.summary
+            + "\n\nURL: " + displayedArticle.url);
         if (displayedArticle.imageUrl != null) {
             articleImage.setImage(
                 new Image(displayedArticle.imageUrl, 100, 100, false, false));
@@ -328,6 +328,7 @@ public class ApiApp extends Application {
      * Takes the TLE Satellite contents and adds their data to the scene graph components.
      */
     public void displaySatellite() {
+
         // Parsing through the second line of text given by the TLE API
         String fullLine = displayedSatellite.line2;
         Scanner lineScan = new Scanner(fullLine);
@@ -351,10 +352,14 @@ public class ApiApp extends Application {
             + displayedSatellite.line1.substring
              (displayedSatellite.line1.length() - 4, displayedSatellite.line1.length())
             + "\nLaunch Year: " + displayedSatellite.date.substring(0, 4)
-            + "\nInclination: " + inclination
+            + "\nInclination: " + inclination + " degrees"
             + "\nEccentricity: " + eccentricity
-            + "\nArgument of Perigee: " + perigee
+            + "\nArgument of Perigee: " + perigee + " degrees"
             + "\nRevolutions around Earth: " + revolutions.substring(0, revolutions.length() - 1));
+
+        satelliteBox.getDialogPane().setContent(satelliteInfo);
+        satelliteBox.setResizable(true);
+        satelliteBox.showAndWait();
     } // displaySatellite
 
     /**
